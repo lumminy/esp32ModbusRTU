@@ -138,12 +138,33 @@ ModbusRequest::ModbusRequest(uint8_t length) :
   return _address;
 }
 
-ModbusRequest02::ModbusRequest02(uint8_t slaveAddress, uint16_t address, uint16_t numberCoils) :
+ModbusRequest01::ModbusRequest01(uint8_t slaveAddress, uint16_t address, uint16_t numberCoils) :
+  ModbusRequest(8) {
+  _slaveAddress = slaveAddress;
+  _functionCode = esp32Modbus::READ_COIL;
+  _address = address;
+  _byteCount = (numberCoils + 7) / 8;
+  add(_slaveAddress);
+  add(_functionCode);
+  add(high(_address));
+  add(low(_address));
+  add(high(numberCoils));
+  add(low(numberCoils));
+  uint16_t CRC = CRC16(_buffer, 6);
+  add(low(CRC));
+  add(high(CRC));
+}
+
+size_t ModbusRequest01::responseLength() {
+  return 5 + _byteCount;
+}
+
+ModbusRequest02::ModbusRequest02(uint8_t slaveAddress, uint16_t address, uint16_t numberCoils):
   ModbusRequest(8) {
   _slaveAddress = slaveAddress;
   _functionCode = esp32Modbus::READ_DISCR_INPUT;
   _address = address;
-  _byteCount = numberCoils / 8 + 1;
+  _byteCount = (numberCoils + 7) / 8;
   add(_slaveAddress);
   add(_functionCode);
   add(high(_address));

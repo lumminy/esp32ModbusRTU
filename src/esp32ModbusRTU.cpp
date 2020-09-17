@@ -49,10 +49,15 @@ void esp32ModbusRTU::begin(int coreID /* = -1 */) {
     pinMode(_rtsPin, OUTPUT);
     digitalWrite(_rtsPin, LOW);
   }
-  xTaskCreatePinnedToCore((TaskFunction_t)&_handleConnection, "esp32ModbusRTU", 4096, this, 5, &_task, coreID >= 0 ? coreID : NULL);
+  xTaskCreatePinnedToCore((TaskFunction_t)&_handleConnection, "esp32ModbusRTU", 4096, this, 1, &_task, coreID >= 0 ? coreID : NULL);
   // silent interval is at least 3.5x character time
   _interval = 40000 / _serial->baudRate();  // 4 * 1000 * 10 / baud
   if (_interval == 0) _interval = 1;  // minimum of 1msec interval
+}
+
+bool esp32ModbusRTU::readCoils(uint8_t slaveAddress, uint16_t address, uint16_t numberCoils) {
+  ModbusRequest* request = new ModbusRequest01(slaveAddress, address, numberCoils);
+  return _addToQueue(request);
 }
 
 bool esp32ModbusRTU::readDiscreteInputs(uint8_t slaveAddress, uint16_t address, uint16_t numberCoils) {
@@ -99,9 +104,12 @@ bool esp32ModbusRTU::_addToQueue(ModbusRequest* request) {
 }
 
 void esp32ModbusRTU::_handleConnection(esp32ModbusRTU* instance) {
+  ModbusRequest* request;
+
+  uint32_t delay = pdMS_TO_TICKS(100);
+
   while (1) {
-    ModbusRequest* request;
-    if (pdTRUE == xQueueReceive(instance->_queue, &request, portMAX_DELAY)) {  // block and wait for queued item
+    if (pdTRUE == xQueueReceive(instance->_queue, &request, 0)) {
       instance->_send(request->getMessage(), request->getSize());
       ModbusResponse* response = instance->_receive(request);
       if (response->isSucces()) {
@@ -112,6 +120,8 @@ void esp32ModbusRTU::_handleConnection(esp32ModbusRTU* instance) {
       delete request;  // object created in public methods
       delete response;  // object created in _receive()
     }
+
+    vTaskDelay(delay);
   }
 }
 
