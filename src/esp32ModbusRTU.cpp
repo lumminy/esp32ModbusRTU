@@ -106,10 +106,8 @@ bool esp32ModbusRTU::_addToQueue(ModbusRequest* request) {
 void esp32ModbusRTU::_handleConnection(esp32ModbusRTU* instance) {
   ModbusRequest* request;
 
-  uint32_t delay = pdMS_TO_TICKS(100);
-
   while (1) {
-    if (pdTRUE == xQueueReceive(instance->_queue, &request, 0)) {
+    if (pdTRUE == xQueueReceive(instance->_queue, &request, portMAX_DELAY)) {
       instance->_send(request->getMessage(), request->getSize());
       ModbusResponse* response = instance->_receive(request);
       if (response->isSucces()) {
@@ -120,8 +118,6 @@ void esp32ModbusRTU::_handleConnection(esp32ModbusRTU* instance) {
       delete request;  // object created in public methods
       delete response;  // object created in _receive()
     }
-
-    vTaskDelay(delay);
   }
 }
 
